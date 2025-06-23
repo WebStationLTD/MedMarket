@@ -12,7 +12,7 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'bg' },
       link: [
-        { rel: 'icon', href: '/next-level-logo.png', type: 'image/png' },
+        { rel: 'icon', href: '/LeadFitnesLogoRed.svg', type: 'image/png' },
         { rel: 'stylesheet', href: 'https://cdnjs.cloudflare.com/ajax/libs/tiny-slider/2.9.4/tiny-slider.css' },
       ],
       script: [
@@ -65,9 +65,16 @@ export default defineNuxtConfig({
         pages.push({ name, path, file: resolve(`./app/pages/${file}`) });
       };
 
-      addPage('product-page-pager', '/products/page/:pageNumber', 'products.vue');
+      addPage('magazin-page-pager', '/magazin/page/:pageNumber', 'magazin.vue');
+
+      // Йерархични маршрути за категории (parent/child)
+      addPage('produkt-kategoriya-parent-child', '/produkt-kategoriya/:parent/:child', 'produkt-kategoriya/[parent]/[child].vue');
+      addPage('produkt-kategoriya-parent-child-pager', '/produkt-kategoriya/:parent/:child/page/:pageNumber', 'produkt-kategoriya/[parent]/[child].vue');
+
+      // Основни маршрути за категории (fallback за плоски URL-и)
       addPage('produkt-kategoriya-slug', '/produkt-kategoriya/:categorySlug', 'produkt-kategoriya/[slug].vue');
       addPage('produkt-kategoriya-page-pager', '/produkt-kategoriya/:categorySlug/page/:pageNumber', 'produkt-kategoriya/[slug].vue');
+
       addPage('order-received', '/checkout/order-received/:orderId', 'order-summary.vue');
       addPage('order-summary', '/order-summary/:orderId', 'order-summary.vue');
 
@@ -81,7 +88,7 @@ export default defineNuxtConfig({
       '/checkout/order-received/**': { ssr: false },
       '/order-summary/**': { ssr: false },
       '/product/**': { redirect: { to: '/produkt/**', statusCode: 301 } },
-      '/product-category/**': { redirect: { to: '/produkt-kategoriya/**', statusCode: 301 } },
+      '/products/**': { redirect: { to: '/magazin/**', statusCode: 301 } },
     },
   },
 

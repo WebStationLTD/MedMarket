@@ -4,14 +4,28 @@
  * is what the filter query looks like: ?filter=pa_color[green,blue],pa_size[md]
  */
 export function useFiltering() {
-  const route = useRoute();
   const router = useRouter();
-  const runtimeConfig = useRuntimeConfig(); // Declare a variable for the runtime config and the filter and order functions
-  const { updateProductList } = useProducts();
+  const runtimeConfig = useRuntimeConfig();
+  const { loadProductsWithFilters } = useProducts();
 
   const filterQuery = useState<string>('filter', () => '');
 
-  filterQuery.value = route.query.filter as string;
+  // Инициализираме и синхронизираме filterQuery
+  if (process.client) {
+    const route = useRoute();
+
+    // Първоначална инициализация
+    filterQuery.value = (route.query.filter as string) || '';
+
+    // Watcher за синхронизация на filterQuery с route промени
+    watch(
+      () => route.query.filter,
+      (newFilter) => {
+        filterQuery.value = (newFilter as string) || '';
+      },
+      { immediate: true },
+    );
+  }
 
   /**
    * Get the filter value from the url
@@ -20,26 +34,101 @@ export function useFiltering() {
    * @example getFilter('pa_color') // ["green", "blue"]
    */
   function getFilter(filterName: string): string[] {
-    return filterQuery.value?.split(`${filterName}[`)[1]?.split(']')[0]?.split(',') || [];
+    if (!filterQuery.value) return [];
+
+    const match = filterQuery.value.match(new RegExp(`${filterName}\\[([^\\]]*)\\]`));
+    if (!match || !match[1]) return [];
+
+    const values = match[1].split(',').filter((val) => val && val.trim());
+    return values;
   }
 
   /**
-   * Set the filter value in the url
+   * Конвертира URL филтрите в GraphQL формат
+   */
+  function buildGraphQLFilters() {
+    const filters: any = {};
+
+    // Ценови филтър
+    const priceRange = getFilter('price');
+    if (priceRange.length === 2 && priceRange[0] && priceRange[1]) {
+      const minPrice = parseFloat(priceRange[0]);
+      const maxPrice = parseFloat(priceRange[1]);
+      if (!isNaN(minPrice) && !isNaN(maxPrice)) {
+        filters.minPrice = minPrice;
+        filters.maxPrice = maxPrice;
+      }
+    }
+
+    // OnSale филтър - само ако има валидна стойност
+    const onSale = getFilter('sale');
+    if (onSale.length > 0 && onSale.includes('true')) {
+      filters.onSale = true;
+    }
+
+    // Search филтър (ако е наличен в URL)
+    const searchTerm = getFilter('search');
+    if (searchTerm.length > 0 && searchTerm[0]) {
+      filters.search = searchTerm[0];
+    }
+
+    // Category филтър - ще се предава като categorySlug array към GraphQL
+    const categoryFilter = getFilter('category');
+    if (categoryFilter.length > 0) {
+      filters.categorySlug = categoryFilter.filter((cat) => cat && cat.trim());
+    }
+
+    // ВРЕМЕННО СКРИТ - Rating филтър
+    // Rating филтър - ще се обработва клиентски след получаване на резултатите
+    // защото WooCommerce GraphQL не поддържа директен rating филтър
+    // const ratingFilter = getFilter('rating');
+    // if (ratingFilter.length > 0 && ratingFilter[0]) {
+    //   filters.rating = parseFloat(ratingFilter[0]);
+    // }
+
+    return filters;
+  }
+
+  /**
+   * Получава категорията от URL
+   */
+  function getCategoryFromFilters(): string[] {
+    const categories = getFilter('category');
+    return categories;
+  }
+
+  /**
+   * Set the filter value in the url and reload products with server-side filtering
    * @param {string}
    * @param {string[]}
    * @example Just like the example above, but in reverse. setFilter('pa_color', ['green', 'blue'])
    */
-  function setFilter(filterName: string, filterValue: string[]) {
+  async function setFilter(filterName: string, filterValue: string[]) {
+    // Работи само на клиента
+    if (!process.client) return;
+
+    const route = useRoute();
     let newFilterQuery = filterQuery.value || '';
+
+    // Filter out empty or whitespace-only values - конвертираме към string преди validation
+    const cleanFilterValue = filterValue
+      .map((val) => String(val)) // Конвертираме към string (numbers станат strings)
+      .filter((val) => val && val.trim()) // След това safely извикваме trim
+      .filter((val) => val !== 'null' && val !== 'undefined'); // Премахваме null/undefined strings
 
     // If there are filters and filterName is not one of them, add the filter query
     if (!filterQuery.value?.includes(filterName)) {
-      newFilterQuery = filterQuery.value ? `${filterQuery.value},${filterName}[${filterValue}]` : `${filterName}[${filterValue}]`;
+      newFilterQuery =
+        filterQuery.value && cleanFilterValue.length > 0
+          ? `${filterQuery.value},${filterName}[${cleanFilterValue}]`
+          : cleanFilterValue.length > 0
+            ? `${filterName}[${cleanFilterValue}]`
+            : filterQuery.value;
     } else {
-      // If filterValue is empty, remove the filter query
-      newFilterQuery = !filterValue.length
+      // If cleanFilterValue is empty, remove the filter query
+      newFilterQuery = !cleanFilterValue.length
         ? filterQuery.value.replace(`${filterName}[${getFilter(filterName)}]`, '')
-        : filterQuery.value.replace(`${filterName}[${getFilter(filterName)}]`, `${filterName}[${filterValue}]`);
+        : filterQuery.value.replace(`${filterName}[${getFilter(filterName)}]`, `${filterName}[${cleanFilterValue}]`);
     }
 
     // remove the first or last comma
@@ -51,10 +140,8 @@ export function useFiltering() {
     // Update the filter query
     filterQuery.value = newFilterQuery;
 
-    router.push({ query: { ...route.query, filter: newFilterQuery } });
-
-    // remove pagination from the url
-    const path = route.path.includes('/page/') ? route.path.split('/page/')[0] : route.path;
+    // Премахваме pagination само ако сме на страница > 1, за да избегнем проблеми с несъществуващи страници при нови филтри
+    const path = route.path.includes('/page/') && !route.path.endsWith('/page/1') ? route.path.split('/page/')[0] : route.path;
 
     // if the filter query is empty, remove it from the url
     if (!newFilterQuery) {
@@ -69,23 +156,41 @@ export function useFiltering() {
       });
     }
 
-    setTimeout(() => {
-      updateProductList();
-    }, 50);
+    // Навигацията ще trigger-не watcher-а в products.vue който ще зареди продуктите
+    // Премахваме loadProductsWithFilters за да избегнем race conditions
   }
 
   /**
    * Reset the filter value in the url
    */
-  function resetFilter(): void {
+  async function resetFilter(): Promise<void> {
+    // Работи само на клиента
+    if (!process.client) return;
+
+    const route = useRoute();
     const { scrollToTop } = useHelpers();
     filterQuery.value = '';
     router.push({ query: { ...route.query, filter: undefined } });
 
-    setTimeout(() => {
-      updateProductList();
-      scrollToTop();
-    }, 50);
+    // Изчакваме URL-а да се обнови и после зареждаме продуктите
+    await nextTick();
+
+    // Получаваме текущата категория от route ако е налична
+    let categorySlug: string[] | undefined;
+    if (route.params.slug) {
+      categorySlug = [route.params.slug as string];
+    }
+
+    // Получаваме orderby ако е налично
+    let graphqlOrderBy = 'DATE';
+    if (route.query.orderby === 'price') graphqlOrderBy = 'PRICE';
+    else if (route.query.orderby === 'rating') graphqlOrderBy = 'RATING';
+    else if (route.query.orderby === 'alphabetically') graphqlOrderBy = 'NAME_IN';
+    else if (route.query.orderby === 'date') graphqlOrderBy = 'DATE';
+    else if (route.query.orderby === 'discount') graphqlOrderBy = 'DATE';
+
+    await loadProductsWithFilters(categorySlug, graphqlOrderBy);
+    scrollToTop();
   }
 
   /**
@@ -95,7 +200,7 @@ export function useFiltering() {
   const isFiltersActive = computed<boolean>(() => !!filterQuery.value);
 
   /**
-   * Filter the products based on the active filters
+   * Filter the products based on the active filters (legacy client-side filtering)
    * @param {Product[]} products - An array of all the products
    * @returns {Product[]} - An array of filtered products
    */
@@ -114,11 +219,15 @@ export function useFiltering() {
         : true;
 
       // Star rating filter
-      const starRating = getFilter('rating') || [];
-      const ratingCondition = starRating.length ? (product?.averageRating || 0) >= parseFloat(starRating[0] as string) : true;
+      // ВРЕМЕННО СКРИТО - rating филтър в legacy filterProducts
+      // const starRating = getFilter('rating') || [];
+      // const ratingCondition = starRating.length ? (product?.averageRating || 0) >= parseFloat(starRating[0] as string) : true;
+      const ratingCondition = true; // Винаги true когато rating филтърът е скрит
 
       // Product attribute filters
-      const globalProductAttributes = runtimeConfig?.public?.GLOBAL_PRODUCT_ATTRIBUTES?.map((attribute: any) => attribute.slug) || [];
+      const globalProductAttributes = Array.isArray(runtimeConfig?.public?.GLOBAL_PRODUCT_ATTRIBUTES)
+        ? runtimeConfig.public.GLOBAL_PRODUCT_ATTRIBUTES.map((attribute: any) => attribute.slug)
+        : [];
       const attributeCondition = globalProductAttributes
         .map((attribute: string) => {
           const attributeValues = getFilter(attribute) || [];
@@ -135,5 +244,5 @@ export function useFiltering() {
     });
   }
 
-  return { getFilter, setFilter, resetFilter, isFiltersActive, filterProducts };
+  return { getFilter, setFilter, resetFilter, isFiltersActive, filterProducts, buildGraphQLFilters, getCategoryFromFilters };
 }

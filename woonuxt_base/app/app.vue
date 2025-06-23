@@ -22,10 +22,56 @@ watch(
 useHead({
   titleTemplate: `%s - ${siteName}`,
 });
+
+// Принудително завършване на loading indicator-а при завършена навигация
+const nuxtApp = useNuxtApp();
+
+// Hook за page:finish
+nuxtApp.hook('page:finish', () => {
+  setTimeout(() => {
+    if (process.client) {
+      const loadingIndicator = document.querySelector('.nuxt-loading-indicator');
+      if (loadingIndicator) {
+        (loadingIndicator as HTMLElement).style.width = '100%';
+        setTimeout(() => {
+          (loadingIndicator as HTMLElement).style.opacity = '0';
+        }, 100);
+      }
+    }
+  }, 200);
+});
+
+// Допълнителен hook за app:mounted
+nuxtApp.hook('app:mounted', () => {
+  setTimeout(() => {
+    if (process.client) {
+      const loadingIndicator = document.querySelector('.nuxt-loading-indicator');
+      if (loadingIndicator && getComputedStyle(loadingIndicator).opacity !== '0') {
+        (loadingIndicator as HTMLElement).style.width = '100%';
+        setTimeout(() => {
+          (loadingIndicator as HTMLElement).style.opacity = '0';
+        }, 100);
+      }
+    }
+  }, 1000);
+});
+
+// Резервна защита с глобален timeout
+if (process.client) {
+  setTimeout(() => {
+    const loadingIndicator = document.querySelector('.nuxt-loading-indicator');
+    if (loadingIndicator && getComputedStyle(loadingIndicator).opacity !== '0') {
+      (loadingIndicator as HTMLElement).style.width = '100%';
+      setTimeout(() => {
+        (loadingIndicator as HTMLElement).style.opacity = '0';
+      }, 100);
+    }
+  }, 15000); // 15 секунди максимум
+}
 </script>
 
 <template>
-  <NuxtLoadingIndicator />
+  <!-- <NuxtLoadingIndicator /> -->
   <div class="flex flex-col min-h-screen">
     <AppHeader />
 

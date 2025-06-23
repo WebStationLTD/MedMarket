@@ -1,10 +1,12 @@
 <script setup lang="ts">
-const route = useRoute();
 const { productsPerPage } = useHelpers();
 const { products } = useProducts();
 
-// TODO: Refactor all this logic. It's a mess.
+// SSR-safe computed properties
 const currentQuery = computed(() => {
+  if (!process.client) return '';
+
+  const route = useRoute();
   const query = route.query;
   const queryKeys = Object.keys(query);
   let currentQuery = '';
@@ -16,34 +18,38 @@ const currentQuery = computed(() => {
   return decodeURIComponent(currentQuery);
 });
 
-const page = ref(route.params.pageNumber ? parseInt(route.params.pageNumber as string) : 1);
-const numberOfPages = computed<number>(() => Math.ceil(products.value.length / productsPerPage || 1));
+const page = computed(() => {
+  if (!process.client) return 1;
+
+  const route = useRoute();
+  return route.params.pageNumber ? parseInt(route.params.pageNumber as string) : 1;
+});
+
+const numberOfPages = computed<number>(() => Math.ceil((products.value?.length || 0) / productsPerPage || 1));
 
 const prevSrc = (pageNumber: number) => {
   if (currentQuery.value === '') {
-    return decodeURIComponent(`/products/page/${pageNumber > 1 ? pageNumber - 1 : pageNumber}`);
+    return decodeURIComponent(`/magazin/page/${pageNumber > 1 ? pageNumber - 1 : pageNumber}`);
   } else {
-    return decodeURIComponent(
-      pageNumber > 1 ? `/products/page/${pageNumber - 1}/?${currentQuery.value}` : `/products/page/${pageNumber}/?${currentQuery.value}`,
-    );
+    return decodeURIComponent(pageNumber > 1 ? `/magazin/page/${pageNumber - 1}/?${currentQuery.value}` : `/magazin/page/${pageNumber}/?${currentQuery.value}`);
   }
 };
 
 const nextSrc = (pageNumber: number) => {
   if (currentQuery.value === '') {
-    return decodeURIComponent(`/products/page/${pageNumber < numberOfPages.value ? pageNumber + 1 : pageNumber}`);
+    return decodeURIComponent(`/magazin/page/${pageNumber < numberOfPages.value ? pageNumber + 1 : pageNumber}`);
   } else {
     return decodeURIComponent(
-      pageNumber < numberOfPages.value ? `/products/page/${pageNumber + 1}/?${currentQuery.value}` : `/products/page/${pageNumber}/?${currentQuery.value}`,
+      pageNumber < numberOfPages.value ? `/magazin/page/${pageNumber + 1}/?${currentQuery.value}` : `/magazin/page/${pageNumber}/?${currentQuery.value}`,
     );
   }
 };
 
 const numberSrc = (pageNumber: number) => {
   if (currentQuery.value === '') {
-    return decodeURIComponent(`/products/page/${pageNumber}`);
+    return decodeURIComponent(`/magazin/page/${pageNumber}`);
   } else {
-    return decodeURIComponent(`/products/page/${pageNumber}/?${currentQuery.value}`);
+    return decodeURIComponent(`/magazin/page/${pageNumber}/?${currentQuery.value}`);
   }
 };
 </script>

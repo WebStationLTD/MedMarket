@@ -13,7 +13,7 @@ onMounted(() => {
         order.value = JSON.parse(savedOrder);
       }
     } catch (e) {
-      console.error('Грешка при извличане на данни за поръчката', e);
+      // Грешка при извличане на данни за поръчката
     }
   }
 });
@@ -64,7 +64,7 @@ onMounted(() => {
         {{ $t('messages.shop.continueShopping') }}
         <NuxtLink to="/" class="text-primary underline">{{ $t('messages.general.home') }}</NuxtLink>
         {{ $t('messages.shop.or') }}
-        <NuxtLink to="/products" class="text-primary underline">{{ $t('messages.general.allProducts') }}</NuxtLink
+        <NuxtLink to="/magazin" class="text-primary underline">{{ $t('messages.general.allProducts') }}</NuxtLink
         >.
       </p>
     </div>

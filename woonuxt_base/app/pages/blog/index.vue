@@ -13,7 +13,6 @@ try {
   });
   seoDataSet = true;
 } catch (error) {
-  console.error('Грешка при зареждане на SEO данни:', error);
   useHead({
     title: 'Блог',
     meta: [{ name: 'description', content: 'Всички публикации от нашия блог' }],
@@ -30,16 +29,11 @@ try {
 
   // Запазваме данните за диагностика
   debugData.value = data.value;
-  console.log('Данни от опростена getPosts заявка:', JSON.stringify(data.value, null, 2));
-
   if (data.value?.posts?.nodes) {
     setPosts(data.value.posts.nodes);
-    console.log('Брой публикации:', data.value.posts.nodes.length);
-  } else {
-    console.warn('Не са намерени публикации в блога. Данни:', data.value);
   }
 } catch (error) {
-  console.error('Грешка при зареждане на публикации:', error);
+  // Грешка при зареждане на публикации
 }
 </script>
 
@@ -65,7 +59,7 @@ try {
         <div class="p-4">
           <h2 class="text-lg font-semibold mb-2">{{ post.title }}</h2>
           <p class="text-sm text-gray-500 mb-2">
-            {{ new Date(post.date).toLocaleDateString('bg-BG') }}
+            {{ post.date ? new Date(post.date).toLocaleDateString('bg-BG') : 'Неизвестна дата' }}
           </p>
           <div class="text-gray-700 mb-4" v-html="post.excerpt"></div>
           <NuxtLink :to="`/blog/${post.slug}`" class="text-blue-600 hover:underline"> Прочети повече </NuxtLink>

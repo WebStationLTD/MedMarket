@@ -90,7 +90,6 @@ const addProductToCart = async () => {
 
     await addToCart(input);
   } catch (error) {
-    console.error('Грешка при добавяне в количката:', error);
     variationError.value = 'Възникна грешка при добавяне в количката';
   } finally {
     setTimeout(() => {
@@ -105,6 +104,27 @@ watch(cart, () => {
     isLoading.value = false;
     variationError.value = '';
   }, 300);
+});
+
+// Изчисляване на вариациите за текстово показване (използваме същата логика като в селекта)
+const availableVariationsText = computed(() => {
+  if (!hasVariations.value) return '';
+
+  const variations = props.node?.variations?.nodes || [];
+  const variationTexts = variations
+    .map((variation) => {
+      if (variation.attributes?.nodes?.length) {
+        return variation.attributes.nodes
+          .map((attr) => attr.value)
+          .filter(Boolean)
+          .join(' / ');
+      } else {
+        return variation.name;
+      }
+    })
+    .filter(Boolean);
+
+  return variationTexts.join(' | ');
 });
 </script>
 
@@ -139,6 +159,7 @@ watch(cart, () => {
         <!-- Селект за вариации (само за вариационни продукти) -->
         <div v-if="hasVariations" class="flex w-full mt-2 sm:mt-0 sm:justify-end sm:w-[100px]">
           <select
+            :id="`variations-${node.databaseId}`"
             class="text-xs py-1 px-2 border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white w-full sm:max-w-[160px]"
             @change="(e) => selectVariation(Number((e.target as HTMLSelectElement).value))">
             <option value="" disabled selected>Вариации</option>
@@ -178,7 +199,12 @@ watch(cart, () => {
               :disabled="quantity <= 1">
               <Icon name="ion:remove" size="14" />
             </button>
-            <input v-model.number="quantity" type="number" min="1" class="w-8 h-full text-xs text-center bg-transparent focus:outline-none" />
+            <input
+              :id="`quantity-${node.databaseId}`"
+              v-model.number="quantity"
+              type="number"
+              min="1"
+              class="w-8 h-full text-xs text-center bg-transparent focus:outline-none" />
             <button
               @click.prevent="incrementQuantity"
               type="button"
@@ -191,10 +217,18 @@ watch(cart, () => {
             @click.prevent="addProductToCart"
             type="button"
             :disabled="isButtonDisabled"
-            class="flex items-center justify-center flex-1 h-8 px-3 text-xs font-medium text-white transition-colors bg-gray-800 rounded-md hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed">
+            class="flex items-center justify-center flex-1 h-8 px-3 text-xs font-medium text-white transition-colors bg-[#9c0100] rounded-md hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed">
             <span>Купи</span>
             <LoadingIcon v-if="isLoading" stroke="3" size="10" color="#fff" class="ml-1" />
           </button>
+        </div>
+      </div>
+
+      <!-- Показване на наличните вариации като текст (най-долу вдясно) -->
+      <div v-if="hasVariations && availableVariationsText" class="mt-2 text-left">
+        <div class="text-xs text-gray-500 leading-relaxed">
+          <span class="font-medium">Вариации:</span>
+          <span class="ml-1">{{ availableVariationsText }}</span>
         </div>
       </div>
     </div>

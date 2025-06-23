@@ -73,7 +73,7 @@ onUnmounted(() => {
   <section v-if="newProducts.length" class="my-4">
     <div class="flex items-end justify-between mb-8">
       <h2 class="text-2xl font-semibold md:text-3xl px-4">{{ $t('messages.shop.newArrivals') }}</h2>
-      <NuxtLink class="text-primary px-4" to="/products">{{ $t('messages.general.viewAll') }}</NuxtLink>
+      <NuxtLink class="text-primary px-4" to="/magazin">{{ $t('messages.general.viewAll') }}</NuxtLink>
     </div>
 
     <client-only>
@@ -204,7 +204,7 @@ onUnmounted(() => {
 .custom-next-button:hover {
   opacity: 1;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-  background-color: var(--color-primary, #3b82f6);
+  background-color: var(--color-primary, #9c0100);
 }
 
 .custom-prev-button:hover svg,
@@ -230,7 +230,7 @@ onUnmounted(() => {
 }
 
 :deep(.tns-nav button.tns-nav-active) {
-  background-color: var(--color-primary, #3b82f6);
+  background-color: var(--color-primary, #9c0100);
   opacity: 1;
 }
 

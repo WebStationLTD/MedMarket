@@ -10,8 +10,8 @@ const { siteName, description, shortDescription, siteImage } = useAppConfig();
 const { data: seoData } = await useAsyncGql('getHomeSeo');
 const homeSeo = seoData.value?.page?.seo || null;
 
-// Получаване на категории
-const { data } = await useAsyncGql('getProductCategories', { first: 10 });
+// Получаване на всички категории
+const { data } = await useAsyncGql('getProductCategories', { first: 100, hideEmpty: true });
 const productCategories = data.value?.productCategories?.nodes || [];
 
 // Получаване на популярни продукти
@@ -19,17 +19,31 @@ const { data: productData } = await useAsyncGql('getProducts', { first: 5, order
 const popularProducts = productData.value.products?.nodes || [];
 
 // Използване на SEO данни от Yoast ако са налични, иначе използване на данни от конфигурацията
+const seoTitle = homeSeo?.title || siteName || 'WooNuxt - Най-добрият онлайн магазин за спортно оборудване';
+const seoDescription =
+  homeSeo?.metaDesc ||
+  description ||
+  'Открийте висококачествено спортно оборудване, фитнес уреди и аксесоари в нашия онлайн магазин. Бързи доставки, конкурентни цени и професионално обслужване.';
+const canonicalUrl = process.env.APP_HOST || 'https://woonuxt-ten.vercel.app';
+
 useSeoMeta({
-  title: homeSeo?.title || 'Home',
-  ogTitle: homeSeo?.opengraphTitle || siteName,
-  description: homeSeo?.metaDesc || description,
-  ogDescription: homeSeo?.opengraphDescription || shortDescription,
+  title: seoTitle,
+  ogTitle: homeSeo?.opengraphTitle || seoTitle,
+  description: seoDescription,
+  ogDescription: homeSeo?.opengraphDescription || seoDescription,
+  ogType: 'website',
+  ogUrl: canonicalUrl,
   ogImage: homeSeo?.opengraphImage?.sourceUrl || siteImage,
   twitterCard: 'summary_large_image',
-  twitterTitle: homeSeo?.twitterTitle || siteName,
-  twitterDescription: homeSeo?.twitterDescription || description,
+  twitterTitle: homeSeo?.twitterTitle || seoTitle,
+  twitterDescription: homeSeo?.twitterDescription || seoDescription,
   twitterImage: homeSeo?.twitterImage?.sourceUrl || siteImage,
-  robots: homeSeo?.metaRobotsNoindex ? 'noindex' : undefined,
+  robots: homeSeo?.metaRobotsNoindex === 'noindex' ? 'noindex' : 'index, follow',
+});
+
+// Canonical URL
+useHead({
+  link: [{ rel: 'canonical', href: canonicalUrl }],
 });
 
 // Добавяне на структурирани данни (schema.org) ако са налични в Yoast
@@ -49,21 +63,21 @@ if (homeSeo?.schema?.raw) {
   <main>
     <!-- <HeroBanner /> -->
 
-    <PromoSection />
+    <!-- <PromoSection /> -->
+
+    <section class="mt-4 mb-16 px-6">
+      <!-- <div class="flex items-end justify-between">
+        <h2 class="text-lg font-semibold md:text-2xl">{{ $t('messages.shop.shopByCategory') }}</h2>
+        <NuxtLink class="text-primary" to="/categories">{{ $t('messages.general.viewAll') }}</NuxtLink>
+      </div> -->
+      <div class="grid justify-center grid-cols-2 gap-4 mt-8 md:grid-cols-3 lg:grid-cols-5">
+        <CategoryCard v-for="(category, i) in productCategories" :key="i" class="w-full" :node="category" :all-categories="productCategories" />
+      </div>
+    </section>
 
     <NewProductsCarousel />
 
-    <BestProductCategory :categoryId="21" />
-
-    <section class="mt-4 mb-16 px-6">
-      <div class="flex items-end justify-between">
-        <h2 class="text-lg font-semibold md:text-2xl">{{ $t('messages.shop.shopByCategory') }}</h2>
-        <NuxtLink class="text-primary" to="/categories">{{ $t('messages.general.viewAll') }}</NuxtLink>
-      </div>
-      <div class="grid justify-center grid-cols-2 gap-4 mt-8 md:grid-cols-3 lg:grid-cols-5">
-        <CategoryCard v-for="(category, i) in productCategories" :key="i" class="w-full" :node="category" />
-      </div>
-    </section>
+    <!-- <BestProductCategory :categoryId="21" /> -->
 
     <CtaBullets />
 
@@ -78,45 +92,14 @@ if (homeSeo?.schema?.raw) {
 
     <CtaQuality />
 
-    <section class="container grid gap-4 my-24 md:grid-cols-2 lg:grid-cols-4">
-      <div class="flex items-center gap-8 p-8 bg-white rounded-lg">
-        <img src="/icons/box.svg" width="60" height="60" alt="Free Shipping" loading="lazy" />
-        <div>
-          <h3 class="text-xl font-semibold">Free Shipping 1</h3>
-          <p class="text-sm">Free shipping on order over €50</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-8 p-8 bg-white rounded-lg">
-        <img src="/icons/moneyback.svg" width="60" height="60" alt="Money Back" loading="lazy" />
-        <div>
-          <h3 class="text-xl font-semibold">Peace of Mind</h3>
-          <p class="text-sm">30 days money back guarantee</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-8 p-8 bg-white rounded-lg">
-        <img src="/icons/secure.svg" width="60" height="60" alt="Secure Payment" loading="lazy" />
-        <div>
-          <h3 class="text-xl font-semibold">100% Payment Secure</h3>
-          <p class="text-sm">Your payment are safe with us.</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-8 p-8 bg-white rounded-lg">
-        <img src="/icons/support.svg" width="60" height="60" alt="Support 24/7" loading="lazy" />
-        <div>
-          <h3 class="text-xl font-semibold">Support 24/7</h3>
-          <p class="text-sm">24/7 Online support</p>
-        </div>
-      </div>
-    </section>
-
-    <CtaImage />
+    <!-- <CtaImage /> -->
 
     <!-- <PromoSection /> -->
 
     <!--<section class="container my-16" v-if="popularProducts">
       <div class="flex items-end justify-between">
         <h2 class="text-lg font-semibold md:text-2xl">{{ $t('messages.shop.popularProducts') }}</h2>
-        <NuxtLink class="text-primary" to="/products">{{ $t('messages.general.viewAll') }}</NuxtLink>
+        <NuxtLink class="text-primary" to="/magazin">{{ $t('messages.general.viewAll') }}</NuxtLink>
       </div>
       <ProductRow :products="popularProducts" class="grid-cols-2 md:grid-cols-4 lg:grid-cols-5 mt-8" />
     </section>-->

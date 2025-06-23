@@ -12,8 +12,7 @@ try {
     id: slug,
   });
 
-  console.log('Заявка за публикация:', slug);
-  console.log('Отговор:', JSON.stringify(data.value, null, 2));
+  // Debug логове премахнати за производство
 
   if (data.value?.post) {
     post.value = data.value.post;
@@ -23,7 +22,6 @@ try {
       meta: [{ name: 'description', content: data.value.post.excerpt || 'Прочетете нашата блог публикация' }],
     });
   } else {
-    console.warn('Публикацията не е намерена:', slug);
     // Ако публикацията не е намерена
     useHead({
       title: 'Публикацията не е намерена',
@@ -35,7 +33,6 @@ try {
   }
 } catch (err) {
   error.value = err;
-  console.error('Грешка при зареждане на публикация:', err);
 
   // Базови SEO метаданни при грешка
   useHead({
