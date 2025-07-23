@@ -11,11 +11,15 @@ const show = ref(initialTab);
 <template>
   <div>
     <nav class="border-b flex gap-8 tabs">
-      <button v-if="product.description" type="button" :class="show === 0 ? 'active' : ''" @click.prevent="show = 0">{{ $t('messages.shop.productDescription') }}</button>
-      <button v-if="storeSettings.showReviews" type="button" :class="show === 1 ? 'active' : ''" @click.prevent="show = 1">{{ $t('messages.shop.reviews') }} ({{ product.reviewCount }})</button>
+      <button v-if="product.description" type="button" :class="show === 0 ? 'active' : ''" @click.prevent="show = 0">
+        {{ $t('messages.shop.productDescription') }}
+      </button>
+      <button v-if="storeSettings.showReviews" type="button" :class="show === 1 ? 'active' : ''" @click.prevent="show = 1">
+        {{ $t('messages.shop.reviews') }} ({{ product.reviewCount }})
+      </button>
     </nav>
     <div class="tab-contents">
-      <div v-if="show === 0 && product.description" class="font-light mt-8 prose" v-html="product.description" />
+      <div v-if="show === 0 && product.description" class="font-light mt-8 prose prose-lg max-w-none" v-html="product.description" />
       <ProductReviews v-if="show === 1" :product="product" />
     </div>
   </div>
@@ -29,5 +33,25 @@ const show = ref(initialTab);
 
 .tabs button.active {
   @apply border-primary text-primary;
+}
+
+/* Responsive video стилове */
+.tab-contents :deep(video) {
+  @apply w-full h-auto;
+  aspect-ratio: 16 / 9;
+  max-width: 100%;
+}
+
+/* За контейнери на видео съдържание */
+.tab-contents :deep(.wp-block-video),
+.tab-contents :deep(.wp-video) {
+  @apply w-full;
+  max-width: 100% !important;
+}
+
+/* Специфично за WordPress .wp-video с inline стилове в табовете */
+.tab-contents :deep(div.wp-video) {
+  width: 100% !important;
+  max-width: 100% !important;
 }
 </style>

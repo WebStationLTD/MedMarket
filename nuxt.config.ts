@@ -37,8 +37,27 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       GQL_HOST: "https://leaderfitness.admin-panels.com/graphql",
+      FRONT_END_URL: "https://woonuxt-ten.vercel.app",
       PRODUCT_CATEGORY_PERMALINK: "/produkt-kategoriya/",
+      PRODUCT_TAG_PERMALINK: "/produkt-etiket/",
+      PRODUCT_BRAND_PERMALINK: "/marka-produkt/",
       PRODUCTS_PER_PAGE: 12,
+      // ВРЕМЕННА конфигурация за тестване на атрибутите
+      // TODO: Премахнете това след като конфигурирате woonuxt-settings плъгина в WordPress
+      GLOBAL_PRODUCT_ATTRIBUTES: [
+        {
+          slug: "pa_brands", // Този работи!
+          label: "Марка",
+          showCount: false,
+          openByDefault: false,
+        },
+        {
+          slug: "pa_razmer", // Размер атрибут
+          label: "Размер",
+          showCount: false,
+          openByDefault: false,
+        },
+      ],
     },
   },
 
@@ -52,7 +71,7 @@ export default defineNuxtConfig({
   },
 
   sitemap: {
-    siteUrl: "https://leaderfitness.admin-panels.com",
+    siteUrl: "https://woonuxt-ten.vercel.app",
     excludes: [
       "/checkout/order-received/**",
       "/order-summary/**",
@@ -60,7 +79,15 @@ export default defineNuxtConfig({
       "/oauth/**",
     ],
     cacheTime: 1000 * 60 * 15,
-    routes: ["/", "/magazin", "/categories", "/contact", "/wishlist"],
+    routes: [
+      "/",
+      "/magazin",
+      "/categories",
+      "/etiketi",
+      "/marki",
+      "/contact",
+      "/wishlist",
+    ],
   },
 
   "graphql-client": {
@@ -85,7 +112,15 @@ export default defineNuxtConfig({
 
   nitro: {
     prerender: {
-      routes: ["/", "/magazin", "/categories", "/contact"],
+      routes: [
+        "/",
+        "/magazin",
+        "/categories",
+        "/etiketi",
+        "/marki",
+        "/contact",
+        "/blog",
+      ],
       concurrency: 10,
       interval: 1000,
       failOnError: false,
@@ -104,7 +139,9 @@ export default defineNuxtConfig({
         },
       },
       "/categories": { static: true },
+      "/etiketi": { static: true },
       "/contact": { static: true },
+      "/blog": { static: true },
 
       // Частично кеширани с ISR (Incremental Static Regeneration)
       "/produkt/**": {
@@ -121,6 +158,32 @@ export default defineNuxtConfig({
         },
         headers: {
           "Cache-Control": "s-maxage=300",
+        },
+      },
+      "/produkt-etiket/**": {
+        isr: {
+          expiration: 300, // 5 минути за етикети
+        },
+        headers: {
+          "Cache-Control": "s-maxage=300",
+        },
+      },
+      "/marka-produkt/**": {
+        isr: {
+          expiration: 300, // 5 минути за марки
+        },
+        headers: {
+          "Cache-Control": "s-maxage=300",
+        },
+      },
+
+      // Блог постове с ISR
+      "/blog/**": {
+        isr: {
+          expiration: 1800, // 30 минути за блог постове
+        },
+        headers: {
+          "Cache-Control": "s-maxage=1800",
         },
       },
 

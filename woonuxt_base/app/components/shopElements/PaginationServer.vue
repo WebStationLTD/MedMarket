@@ -1,16 +1,55 @@
 <script setup lang="ts">
-const { pageInfo, currentPage, isLoading } = useProducts();
+interface Props {
+  categoryCount?: number | null;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  categoryCount: null,
+});
+
+const { pageInfo, currentPage, isLoading, productsPerPage } = useProducts();
 const route = useRoute();
 
 // Cached computed properties за оптимизация
 const basePath = computed(() => {
+  // Проверяваме за етикети първо
+  if ((route.name === 'produkt-etiket-slug' || route.name === 'produkt-etiket-page-pager') && (route.params.tagSlug || route.params.slug)) {
+    const tagSlug = route.params.tagSlug || route.params.slug;
+    return `/produkt-etiket/${tagSlug}`;
+  }
+  // Проверяваме за етикети с path prefix
+  else if (route.path.startsWith('/produkt-etiket/')) {
+    const pathSegments = route.path.split('/');
+    const tagSlug = pathSegments[2]; // /produkt-etiket/[slug]
+    if (tagSlug && tagSlug !== 'page') {
+      return `/produkt-etiket/${tagSlug}`;
+    }
+  }
+  // Проверяваме за марки първо
+  else if ((route.name === 'marka-produkt-slug' || route.name === 'marka-produkt-page-pager') && (route.params.brandSlug || route.params.slug)) {
+    const brandSlug = route.params.brandSlug || route.params.slug;
+    return `/marka-produkt/${brandSlug}`;
+  }
+  // Проверяваме за марки с path prefix
+  else if (route.path.startsWith('/marka-produkt/')) {
+    const pathSegments = route.path.split('/');
+    const brandSlug = pathSegments[2]; // /marka-produkt/[slug]
+    if (brandSlug && brandSlug !== 'page') {
+      return `/marka-produkt/${brandSlug}`;
+    }
+  }
   // Проверяваме за йерархични категории (parent/child)
-  if (
+  else if (
     (route.name === 'produkt-kategoriya-parent-child' || route.name === 'produkt-kategoriya-parent-child-pager') &&
     route.params.parent &&
     route.params.child
   ) {
-    return `/produkt-kategoriya/${route.params.parent}/${route.params.child}`;
+    const path = `/produkt-kategoriya/${route.params.parent}/${route.params.child}`;
+    return path;
+  }
+  // Проверяваме за родителски категории (slug)
+  else if (route.params.slug && route.path.startsWith('/produkt-kategoriya/')) {
+    return `/produkt-kategoriya/${route.params.slug}`;
   }
   // Проверяваме за новите български пътища (плоски категории)
   else if (route.name === 'produkt-kategoriya-slug' && route.params.categorySlug) {
@@ -40,18 +79,54 @@ const buildPageUrl = (pageNumber: number) => {
   }
 };
 
+// Изчисляваме общия брой страници базиран на реални данни или приблизителна оценка
+const estimatedTotalPages = computed(() => {
+  const currentPageValue = currentPage.value;
+
+  // Ако имаме надежден categoryCount, използваме точния брой страници
+  if (props.categoryCount && props.categoryCount > 0) {
+    const totalPages = Math.ceil(props.categoryCount / productsPerPage.value);
+
+    // DEBUG: Показваме точните изчисления
+    console.log(`🔢 PAGINATION DEBUG: categoryCount=${props.categoryCount}, productsPerPage=${productsPerPage.value}, totalPages=${totalPages}`);
+    console.log(
+      `📊 МАТЕМАТИКА: ${props.categoryCount} ÷ ${productsPerPage.value} = ${props.categoryCount / productsPerPage.value} → Math.ceil = ${totalPages}`,
+    );
+
+    return totalPages;
+  }
+
+  // Ако няма следваща страница, текущата е последната
+  if (!pageInfo.hasNextPage) {
+    return currentPageValue;
+  }
+
+  // За cursor-based pagination без точен count, използваме консервативна оценка
+  let estimatedPages;
+
+  if (currentPageValue <= 5) {
+    // На първите страници, предполагаме поне още 5-7 страници
+    estimatedPages = Math.max(currentPageValue + 7, 12);
+  } else if (currentPageValue <= 10) {
+    // На средни страници, предполагаме още 5-6 страници
+    estimatedPages = currentPageValue + 6;
+  } else {
+    // На високи страници, консервативна оценка
+    estimatedPages = currentPageValue + 5;
+  }
+
+  return estimatedPages;
+});
+
 // Изчисляваме диапазона от страници за показване
 const visiblePages = computed(() => {
   const pages = [];
   const currentPageValue = currentPage.value;
+  const maxEstimatedPage = estimatedTotalPages.value;
 
-  // Изчисляваме максималната страница базирано на pageInfo
-  // Ако има следваща страница, показваме максимум +1 (за да сме сигурни че съществува)
-  const maxPage = pageInfo.hasNextPage ? currentPageValue + 1 : currentPageValue;
-
-  // Определяме диапазона (5 страници общо)
-  const startPage = Math.max(1, currentPageValue - 2);
-  const endPage = Math.min(maxPage, currentPageValue + 2);
+  // Разширяваме диапазона до 7 страници
+  const startPage = Math.max(1, currentPageValue - 3);
+  const endPage = Math.min(maxEstimatedPage, currentPageValue + 3);
 
   for (let i = startPage; i <= endPage; i++) {
     pages.push(i);
@@ -83,11 +158,49 @@ const nextPageUrl = computed(() => {
 
 // Първа страница (показваме само ако не е вече видима в numbers)
 const firstPageUrl = computed(() => {
-  const startPage = Math.max(1, currentPage.value - 2);
+  const startPage = Math.max(1, currentPage.value - 3);
   if (startPage > 1) {
     return buildPageUrl(1);
   }
   return null;
+});
+
+// Последна страница
+const lastPageUrl = computed(() => {
+  const currentPageValue = currentPage.value;
+  const maxEstimatedPage = estimatedTotalPages.value;
+  const endPage = Math.min(maxEstimatedPage, currentPageValue + 3);
+
+  // Ако имаме надежден categoryCount, винаги показваме последната страница
+  if (props.categoryCount && props.categoryCount > 0 && endPage < maxEstimatedPage) {
+    return buildPageUrl(maxEstimatedPage);
+  }
+
+  // За cursor-based pagination показваме "последна страница" ако има hasNextPage
+  // И не показваме вече последната в текущия диапазон
+  if (!props.categoryCount && pageInfo.hasNextPage && endPage < maxEstimatedPage) {
+    return buildPageUrl(maxEstimatedPage);
+  }
+
+  return null;
+});
+
+// Проверяваме дали трябва да показваме "..." преди последната страница
+const shouldShowDotsBeforeLast = computed(() => {
+  const currentPageValue = currentPage.value;
+  const maxEstimatedPage = estimatedTotalPages.value;
+  const endPage = Math.min(maxEstimatedPage, currentPageValue + 3);
+
+  // Показваме "..." преди последната ако има gap до последната страница
+  return endPage < maxEstimatedPage - 1;
+});
+
+// Проверяваме дали трябва да показваме "..." след първата страница
+const shouldShowDotsAfterFirst = computed(() => {
+  const currentPageValue = currentPage.value;
+  const startPage = Math.max(1, currentPageValue - 3);
+
+  return startPage > 2;
 });
 </script>
 
@@ -114,6 +227,9 @@ const firstPageUrl = computed(() => {
         <Icon name="ion:chevron-back-outline" size="20" class="w-5 h-5" />
       </span>
 
+      <!-- DOTS AFTER FIRST -->
+      <span v-if="shouldShowDotsAfterFirst" class="page-number cursor-default"> ... </span>
+
       <!-- NUMBERS -->
       <template v-for="pageNumber in visiblePages" :key="pageNumber">
         <NuxtLink v-if="pageNumber !== currentPage" :to="pageUrls.get(pageNumber)" class="page-number" :class="{ 'opacity-50': isLoading }">
@@ -124,11 +240,20 @@ const firstPageUrl = computed(() => {
         </span>
       </template>
 
+      <!-- DOTS BEFORE LAST -->
+      <span v-if="shouldShowDotsBeforeLast" class="page-number cursor-default"> ... </span>
+
+      <!-- LAST PAGE -->
+      <NuxtLink v-if="lastPageUrl" :to="lastPageUrl" class="last-page" :class="{ 'opacity-50': isLoading }" aria-label="Last page" title="Последна страница">
+        <Icon name="ion:chevron-forward-outline" size="16" class="w-4 h-4" />
+        <Icon name="ion:chevron-forward-outline" size="16" class="w-4 h-4 -ml-1" />
+      </NuxtLink>
+
       <!-- NEXT -->
-      <NuxtLink v-if="nextPageUrl" :to="nextPageUrl" class="next" :class="{ 'opacity-50': isLoading }" aria-label="Next">
+      <NuxtLink v-if="nextPageUrl" :to="nextPageUrl" class="next" :class="{ 'opacity-50': isLoading, 'rounded-r-md': !lastPageUrl }" aria-label="Next">
         <Icon name="ion:chevron-forward-outline" size="20" class="w-5 h-5" />
       </NuxtLink>
-      <span v-else class="next cursor-not-allowed opacity-50" aria-label="Next">
+      <span v-else class="next cursor-not-allowed opacity-50" :class="{ 'rounded-r-md': !lastPageUrl }" aria-label="Next">
         <Icon name="ion:chevron-forward-outline" size="20" class="w-5 h-5" />
       </span>
     </nav>
@@ -143,6 +268,7 @@ const firstPageUrl = computed(() => {
 
 <style lang="postcss" scoped>
 .first-page,
+.last-page,
 .prev,
 .next,
 .page-number {
@@ -153,12 +279,16 @@ const firstPageUrl = computed(() => {
   @apply rounded-l-md;
 }
 
+.last-page {
+  @apply rounded-r-md;
+}
+
 .prev {
   /* rounded-l-md само ако няма first-page */
 }
 
 .next {
-  @apply rounded-r-md;
+  /* rounded-r-md само ако няма last-page */
 }
 
 .page-number {
@@ -170,6 +300,7 @@ const firstPageUrl = computed(() => {
 }
 
 .first-page:hover,
+.last-page:hover,
 .prev:hover,
 .next:hover,
 .page-number:hover {
@@ -177,8 +308,13 @@ const firstPageUrl = computed(() => {
 }
 
 .first-page.opacity-50:hover,
+.last-page.opacity-50:hover,
 .prev.opacity-50:hover,
 .next.opacity-50:hover {
   @apply bg-white;
+}
+
+.page-number.cursor-default:hover {
+  @apply bg-white text-gray-500;
 }
 </style>

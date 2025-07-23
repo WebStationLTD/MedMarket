@@ -1,66 +1,209 @@
 <script setup lang="ts">
 import { TaxonomyEnum } from '#woo';
+import { useCategoryFilters } from '../../composables/useCategoryFilters';
 
 const { isFiltersActive } = useFiltering();
 const { removeBodyClass } = useHelpers();
 const runtimeConfig = useRuntimeConfig();
 const { storeSettings } = useAppConfig();
 
-// hide-categories prop is used to hide the category filter on the product category page
-const { hideCategories } = defineProps({ hideCategories: { type: Boolean, default: false } });
+// Използваме новия оптимизиран composable за контекстуални филтри
+const { loadCategoryFilters, loading: categoryFiltersLoading } = useCategoryFilters();
+
+// Props: hide-categories и category-slug за контекстуални филтри
+const { hideCategories, categorySlug } = defineProps({
+  hideCategories: { type: Boolean, default: false },
+  categorySlug: { type: String, default: null },
+});
 
 const globalProductAttributes = (runtimeConfig?.public?.GLOBAL_PRODUCT_ATTRIBUTES as WooNuxtFilter[]) || [];
-const taxonomies = globalProductAttributes.map((attr) => attr?.slug?.toUpperCase().replace('_', '')) as TaxonomyEnum[];
+const taxonomies = globalProductAttributes.map((attr) => {
+  // ПОПРАВКА: Не премахваме pa_ префикса, само конвертираме в UPPERCASE и заменяме _
+  if (attr?.slug?.startsWith('pa_')) {
+    // За pa_ атрибути: pa_размер -> PAРАЗМЕР
+    return attr.slug.toUpperCase().replace(/_/g, '') as TaxonomyEnum;
+  } else {
+    // За останалите: размер -> РАЗМЕР
+    return attr?.slug?.toUpperCase() as TaxonomyEnum;
+  }
+}) as TaxonomyEnum[];
 
 // Function to close mobile filters
 const closeMobileFilters = () => {
   removeBodyClass('show-filters');
 };
 
-// Зареждаме terms с fallback стратегия
-let { data } = await useAsyncGql('getAllTerms', { taxonomies: [...taxonomies, TaxonomyEnum.PRODUCTCATEGORY] });
-let terms = data.value?.terms?.nodes || [];
+// ⚡ ОПТИМИЗИРАНИ ФИЛТРИ с lazy loading и кеширане
+const terms = ref<any[]>([]);
+const loadingTerms = ref(false);
 
-// Ако няма категории, опитваме без hideEmpty (включва и празни категории)
-if (terms.filter((term) => term.taxonomyName === 'product_cat').length === 0) {
+// Кеш за глобални термини
+const GLOBAL_TERMS_CACHE_KEY = 'woonuxt_global_terms';
+const GLOBAL_TERMS_CACHE_DURATION = 10 * 60 * 1000; // 10 минути
+
+const getCachedGlobalTerms = (): any[] | null => {
+  if (!process.client) return null;
+
   try {
-    const fallbackResult = await useAsyncGql('getAllTerms', {
+    const cached = sessionStorage.getItem(GLOBAL_TERMS_CACHE_KEY);
+    if (!cached) return null;
+
+    const { terms: cachedTerms, timestamp } = JSON.parse(cached);
+    const now = Date.now();
+
+    if (now - timestamp < GLOBAL_TERMS_CACHE_DURATION) {
+      return cachedTerms;
+    }
+
+    sessionStorage.removeItem(GLOBAL_TERMS_CACHE_KEY);
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const setCachedGlobalTerms = (termsData: any[]): void => {
+  if (!process.client) return;
+
+  try {
+    const cacheData = {
+      terms: termsData,
+      timestamp: Date.now(),
+    };
+    sessionStorage.setItem(GLOBAL_TERMS_CACHE_KEY, JSON.stringify(cacheData));
+  } catch {
+    // Ignore cache errors
+  }
+};
+
+// Функция за зареждане на термини (lazy)
+const loadTerms = async () => {
+  if (loadingTerms.value) return;
+  loadingTerms.value = true;
+
+  try {
+    if (categorySlug && categorySlug.trim().length > 0) {
+      // КОНТЕКСТУАЛНИ ФИЛТРИ за категории
+      console.log('🎯 Зареждам контекстуални филтри за:', categorySlug);
+      const contextualTerms = await loadCategoryFilters(categorySlug);
+
+      if (contextualTerms.length > 0) {
+        terms.value = contextualTerms;
+        return;
+      }
+
+      console.log('🔄 FALLBACK: Зареждам глобални филтри');
+    }
+
+    // ГЛОБАЛНИ ФИЛТРИ - първо проверяваме кеша
+    const cachedTerms = getCachedGlobalTerms();
+    if (cachedTerms && cachedTerms.length > 0) {
+      console.log('⚡ КЕШИРАНИ глобални филтри:', cachedTerms.length);
+      terms.value = cachedTerms;
+      return;
+    }
+
+    // Зареждаме глобални термини асинхронно
+    console.log('🌐 Зареждам глобални филтри от сървъра...');
+
+    const { data } = await useAsyncGql('getAllTerms', {
       taxonomies: [...taxonomies, TaxonomyEnum.PRODUCTCATEGORY],
-      hideEmpty: false,
+      hideEmpty: true,
+      first: 200, // Ограничаваме до 200 термина за бързина
     });
 
-    if (fallbackResult.data.value?.terms?.nodes) {
-      terms = fallbackResult.data.value.terms.nodes;
-    }
+    let globalTerms = data.value?.terms?.nodes || [];
 
-    // Ако и това не работи, опитваме само категории
-    if (terms.filter((term) => term.taxonomyName === 'product_cat').length === 0) {
-      const categoriesOnlyResult = await useAsyncGql('getAllTerms', {
-        taxonomies: [TaxonomyEnum.PRODUCTCATEGORY],
-        hideEmpty: false,
-        first: 50,
-      });
+    // Fallback логика за категории ако няма резултати
+    if (globalTerms.filter((term) => term.taxonomyName === 'product_cat').length === 0) {
+      try {
+        const categoriesOnlyResult = await useAsyncGql('getAllTerms', {
+          taxonomies: [TaxonomyEnum.PRODUCTCATEGORY],
+          hideEmpty: false,
+          first: 50,
+        });
 
-      if (categoriesOnlyResult.data.value?.terms?.nodes) {
-        const categoryTerms = categoriesOnlyResult.data.value.terms.nodes;
-        terms = [...terms, ...categoryTerms];
+        if (categoriesOnlyResult.data.value?.terms?.nodes) {
+          const categoryTerms = categoriesOnlyResult.data.value.terms.nodes;
+          globalTerms = [...globalTerms, ...categoryTerms];
+        }
+      } catch {
+        // Ignore fallback errors
       }
     }
+
+    console.log('✅ Заредени глобални филтри:', globalTerms.length);
+
+    // Кешираме резултата
+    setCachedGlobalTerms(globalTerms);
+    terms.value = globalTerms;
   } catch (error) {
-    // Тихо игнорираме грешки от fallback заявките
+    console.error('❌ Грешка при зареждане на филтри:', error);
+    terms.value = [];
+  } finally {
+    loadingTerms.value = false;
   }
+};
+
+// SSR: Зареждаме само ако има categorySlug (контекстуални филтри)
+if (categorySlug && categorySlug.trim().length > 0) {
+  await loadTerms();
 }
 
-// Filter out the product category terms and the global product attributes with their terms
-const productCategoryTerms = terms?.filter((term) => term.taxonomyName === 'product_cat') || [];
+// Client: Lazy loading за глобални филтри
+onMounted(() => {
+  if (!categorySlug || categorySlug.trim().length === 0) {
+    // За /magazin - зареждаме асинхронно след mount
+    setTimeout(() => {
+      loadTerms();
+    }, 100);
+  }
+});
 
-// Filter out the color attribute and the rest of the global product attributes
-const attributesWithTerms = globalProductAttributes.map((attr) => ({ ...attr, terms: terms?.filter((term) => term.taxonomyName === attr.slug) || [] }));
+// Filter out the product category terms and the global product attributes with their terms
+const productCategoryTerms = computed(() => terms.value?.filter((term: any) => term.taxonomyName === 'product_cat') || []);
+
+// ПОПРАВКА: Добавяме по-интелигентно мачване на термините
+const attributesWithTerms = computed(() =>
+  globalProductAttributes.map((attr) => {
+    // Опитваме точно мачване първо
+    let attributeTerms = terms.value?.filter((term: any) => term.taxonomyName === attr.slug) || [];
+
+    // ПОПРАВКА: Ако няма точно мачване и имаме pa_ префикс, опитваме с конвертирания формат
+    if (attributeTerms.length === 0 && attr.slug?.startsWith('pa_')) {
+      // Конвертираме обратно от ENUM към реалното име
+      // pa_brands -> PABRANDS -> търсим в terms с taxonomyName = pa_brands
+      const enumFormat = attr.slug.toUpperCase().replace(/_/g, '');
+
+      // Намираме кои термини отговарят на този enum
+      attributeTerms =
+        terms.value?.filter((term: any) => {
+          if (!term.taxonomyName) return false;
+          const termEnumFormat = term.taxonomyName.toUpperCase().replace(/_/g, '');
+          return termEnumFormat === enumFormat;
+        }) || [];
+    }
+
+    // Ако и това не работи, опитваме без pa_ префикса
+    if (attributeTerms.length === 0 && attr.slug?.startsWith('pa_')) {
+      const slugWithoutPrefix = attr.slug.replace('pa_', '');
+      attributeTerms =
+        terms.value?.filter(
+          (term: any) =>
+            term.taxonomyName === slugWithoutPrefix ||
+            term.taxonomyName === `pa_${slugWithoutPrefix}` ||
+            term.taxonomyName?.toLowerCase() === attr.slug?.toLowerCase(),
+        ) || [];
+    }
+
+    return { ...attr, terms: attributeTerms };
+  }),
+);
 </script>
 
 <template>
   <!-- Desktop филтри - остават на мястото си -->
-  <aside id="filters" class="hidden md:block">
+  <aside id="filters" class="hidden lg:block">
     <div class="relative z-30 grid mb-12 space-y-8 divide-y">
       <PriceFilter />
       <CategoryFilter v-if="!hideCategories" :terms="productCategoryTerms" />
@@ -77,7 +220,7 @@ const attributesWithTerms = globalProductAttributes.map((attr) => ({ ...attr, te
 
   <!-- Mobile филтри - teleport до body -->
   <Teleport to="body">
-    <aside id="mobile-filters" class="block md:hidden">
+    <aside id="mobile-filters" class="block lg:hidden">
       <!-- Back/Close button -->
       <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-white sticky top-0 z-50">
         <h2 class="text-lg font-semibold">Филтри</h2>
@@ -87,7 +230,12 @@ const attributesWithTerms = globalProductAttributes.map((attr) => ({ ...attr, te
       </div>
 
       <div class="p-4">
-        <OrderByDropdown class="block w-full mb-4" />
+        <div class="mb-4">
+          <div class="cursor-pointer flex font-semibold leading-none justify-between items-center mb-3">
+            <span>Сортиране</span>
+          </div>
+          <OrderByDropdown class="w-full" />
+        </div>
         <div class="relative z-30 grid mb-12 space-y-8 divide-y">
           <PriceFilter />
           <CategoryFilter v-if="!hideCategories" :terms="productCategoryTerms" />
@@ -134,7 +282,7 @@ const attributesWithTerms = globalProductAttributes.map((attr) => ({ ...attr, te
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   #mobile-filters {
     @apply bg-white h-full fixed top-0 right-0 w-full max-w-sm transform transition-transform duration-300 ease-in-out translate-x-full overflow-y-auto;
     z-index: 99999 !important;

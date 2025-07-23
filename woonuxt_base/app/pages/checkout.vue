@@ -21,7 +21,34 @@ const isPaid = ref<boolean>(false);
 
 onBeforeMount(async () => {
   if (query.cancel_order) window.close();
+
+  // Показваме грешки за Borica плащания
+  if (query.payment_error) {
+    const errorMessage = getPaymentErrorMessage(query.payment_error as string);
+    if (errorMessage) {
+      alert(errorMessage);
+    }
+  }
 });
+
+function getPaymentErrorMessage(errorType: string): string {
+  switch (errorType) {
+    case 'borica':
+      return 'Плащането чрез Борика е неуспешно. Моля, опитайте отново.';
+    case 'borica_unknown':
+      return 'Възникна неочаквана грешка при плащането чрез Борика.';
+    case 'missing_params':
+      return 'Липсват параметри за обработка на плащането.';
+    case 'processing_failed':
+      return 'Грешка при обработка на плащането. Моля, свържете се с нас.';
+    case 'borica_generation':
+      return 'Не може да се генерира Borica payment URL. Моля, опитайте отново.';
+    case 'borica_cancelled':
+      return 'Плащането чрез Borica е отменено.';
+    default:
+      return 'Възникна грешка при плащането. Моля, опитайте отново.';
+  }
+}
 
 const payNow = async () => {
   buttonText.value = t('messages.general.processing');
@@ -50,6 +77,10 @@ const payNow = async () => {
       isPaid.value = false;
       orderInput.value.transactionId = new Date().getTime().toString();
       orderInput.value.metaData.push({ key: '_chosen_payment_method', value: 'cash_on_delivery' });
+    } else if (method === 'borica_emv') {
+      isPaid.value = false;
+      orderInput.value.transactionId = new Date().getTime().toString();
+      orderInput.value.metaData.push({ key: '_chosen_payment_method', value: 'borica_emv' });
     } else {
       isPaid.value = false;
       orderInput.value.transactionId = new Date().getTime().toString();
@@ -103,31 +134,6 @@ useSeoMeta({
 
       <form v-else class="container flex flex-wrap items-start gap-8 my-16 justify-evenly lg:gap-20" @submit.prevent="payNow">
         <div class="grid w-full max-w-2xl gap-8 checkout-form md:flex-1">
-          <div v-if="!viewer && customer?.billing">
-            <h2 class="w-full mb-2 text-2xl font-semibold leading-none">Contact Information</h2>
-            <p class="mt-1 text-sm text-gray-500">
-              {{ $t('messages.account.alreadyRegistered') }}
-              <NuxtLink to="/my-account" class="text-primary font-semibold">{{ $t('messages.account.login') }}</NuxtLink>
-            </p>
-
-            <div class="w-full mt-4">
-              <label for="email">{{ $t('messages.billing.email') }}</label>
-              <input
-                v-model="customer.billing.email"
-                placeholder="johndoe@email.com"
-                autocomplete="email"
-                type="email"
-                name="email"
-                :class="{ 'has-error': isInvalidEmail }"
-                @blur="checkEmailOnBlur(customer.billing.email)"
-                @input="checkEmailOnInput(customer.billing.email)"
-                required />
-              <Transition name="scale-y" mode="out-in">
-                <div v-if="isInvalidEmail" class="mt-1 text-sm text-red-500">Invalid email address</div>
-              </Transition>
-            </div>
-          </div>
-
           <div>
             <h2 class="w-full mb-3 text-2xl font-semibold">{{ $t('messages.billing.billingDetails') }}</h2>
             <BillingDetails :model-value="customer?.billing || {}" />
@@ -165,6 +171,17 @@ useSeoMeta({
               class="w-full min-h-[100px]"
               rows="4"
               :placeholder="$t('messages.shop.orderNotePlaceholder')"></textarea>
+          </div>
+
+          <div v-if="!viewer && customer?.billing" class="flex flex-col md:flex-row md:gap-8 text-sm text-gray-500">
+            <p>
+              {{ $t('messages.account.alreadyRegistered') }}
+              <NuxtLink to="/my-account" class="text-primary font-semibold">{{ $t('messages.account.login') }}</NuxtLink>
+            </p>
+            <p>
+              Нямате профил? Можете да се регистрирате
+              <NuxtLink to="/my-account" class="text-primary font-semibold">тук</NuxtLink>!
+            </p>
           </div>
         </div>
 

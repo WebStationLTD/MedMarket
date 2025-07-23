@@ -54,11 +54,19 @@ useHead({
             <nav class="space-y-2" aria-label="Полезни линкове">
               <ul class="text-sm space-y-2">
                 <li><NuxtLink to="/" class="text-gray-300 hover:text-white transition-colors">Начало</NuxtLink></li>
-                <li><a href="/example/terms" class="text-gray-300 hover:text-white transition-colors">Общи условия</a></li>
-                <li><a href="/example/privacy" class="text-gray-300 hover:text-white transition-colors">Политика за поверителност</a></li>
-                <li><a href="/example/delivery" class="text-gray-300 hover:text-white transition-colors">Доставка</a></li>
-                <li><a href="/example/returns" class="text-gray-300 hover:text-white transition-colors">Условия за връщане</a></li>
-                <li><a href="/example/about" class="text-gray-300 hover:text-white transition-colors">За нас</a></li>
+                <li><NuxtLink to="/общи-условия/" class="text-gray-300 hover:text-white transition-colors">Общи условия</NuxtLink></li>
+                <li>
+                  <NuxtLink to="/политика-за-поверителност-и-защита-на/" class="text-gray-300 hover:text-white transition-colors"
+                    >Политика за поверителност</NuxtLink
+                  >
+                </li>
+                <li><NuxtLink to="/доставка/" class="text-gray-300 hover:text-white transition-colors">Доставка</NuxtLink></li>
+                <li>
+                  <a href="/pdfs/return-policy.pdf" target="_blank" rel="noopener noreferrer" class="text-gray-300 hover:text-white transition-colors"
+                    >Условия за връщане</a
+                  >
+                </li>
+                <li><NuxtLink to="/за-нас/" class="text-gray-300 hover:text-white transition-colors">За нас</NuxtLink></li>
                 <li><a href="/example/facilities" class="text-gray-300 hover:text-white transition-colors">Оборудвани обекти</a></li>
                 <li><NuxtLink to="/contact" class="text-gray-300 hover:text-white transition-colors">Контакти</NuxtLink></li>
                 <li><a href="/example/articles" class="text-gray-300 hover:text-white transition-colors">Статии</a></li>
@@ -71,11 +79,27 @@ useHead({
             <h3 class="text-white font-semibold text-lg mb-4">Топ категории</h3>
             <nav class="space-y-2" aria-label="Основни категории продукти">
               <ul class="text-sm space-y-2">
-                <li><a href="/example/fitness-equipment" class="text-gray-300 hover:text-white transition-colors">Фитнес Оборудване и Аксесоари</a></li>
-                <li><a href="/example/combat-sports" class="text-gray-300 hover:text-white transition-colors">Бойни спортове</a></li>
-                <li><a href="/example/treadmills" class="text-gray-300 hover:text-white transition-colors">Бягащи пътеки</a></li>
-                <li><a href="/example/clothing" class="text-gray-300 hover:text-white transition-colors">Дрехи</a></li>
-                <li><a href="/example/venum" class="text-gray-300 hover:text-white transition-colors">Venum</a></li>
+                <li><a href="/produkt-kategoriya/бокс" class="text-gray-300 hover:text-white transition-colors">Бокс</a></li>
+                <li><a href="/produkt-kategoriya/бокс/боксов-чувал" class="text-gray-300 hover:text-white transition-colors">Боксови чували</a></li>
+                <li><a href="/produkt-kategoriya/бокс/боксови-ръкавици" class="text-gray-300 hover:text-white transition-colors">Боксови ръкавици</a></li>
+                <li><a href="/produkt-kategoriya/дрехи" class="text-gray-300 hover:text-white transition-colors">Дрехи</a></li>
+                <li><a href="/produkt-kategoriya/дрехи/детски-дрехи" class="text-gray-300 hover:text-white transition-colors">Детски дрехи</a></li>
+                <li><a href="/produkt-kategoriya/дрехи/суичъри" class="text-gray-300 hover:text-white transition-colors">Суичъри</a></li>
+                <li>
+                  <a href="/produkt-kategoriya/фитнес-оборудване-и-аксесоари" class="text-gray-300 hover:text-white transition-colors"
+                    >Фитнес оборудване и аксесоари</a
+                  >
+                </li>
+                <li>
+                  <a href="/produkt-kategoriya/фитнес-оборудване-и-аксесоари/бягаща-пътека" class="text-gray-300 hover:text-white transition-colors"
+                    >Бягащи пътеки</a
+                  >
+                </li>
+                <li>
+                  <a href="/produkt-kategoriya/фитнес-оборудване-и-аксесоари/велоергометри" class="text-gray-300 hover:text-white transition-colors"
+                    >Велоергометри</a
+                  >
+                </li>
               </ul>
             </nav>
           </div>

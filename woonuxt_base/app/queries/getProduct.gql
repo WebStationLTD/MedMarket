@@ -1,3 +1,6 @@
+# import "./fragments/ProductTagsFragment.gql"
+# import "./fragments/PwbBrandsFragment.gql"
+
 query getProduct($slug: ID!) {
   product(id: $slug, idType: SLUG) {
     name
@@ -16,6 +19,8 @@ query getProduct($slug: ID!) {
     shortDescription
     ...ProductWithAttributes
     ...ProductCategories
+    ...ProductTags
+    ...PwbBrands
     ...Terms
     ...SimpleProduct
     ...VariableProduct
