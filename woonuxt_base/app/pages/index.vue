@@ -64,7 +64,7 @@ if (homeSeo?.schema?.raw) {
   <main>
     <!-- <HeroBanner /> -->
 
-    <!-- <PromoSection /> -->
+    <PromoSection />
 
     <!-- ОРИГИНАЛНА СЕКЦИЯ С ВСИЧКИ КАТЕГОРИИ - ЗАКОМЕНТИРАНА 
     <section class="mt-4 mb-16 px-6">
